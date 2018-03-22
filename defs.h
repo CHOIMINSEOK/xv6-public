@@ -10,6 +10,10 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+
+// prac_syscall.c
+int             printk_str(char*);
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
