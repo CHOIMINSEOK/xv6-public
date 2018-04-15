@@ -89,3 +89,38 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+int
+sys_yield(void)
+{
+	yield();
+	return 0;
+}
+
+int 
+sys_set_cpu_share(void)
+{
+	int share;
+	if(argint(0, &share) < 0)
+    	return -1;
+	return set_cpu_share(share);
+}
+
+int
+sys_alarm(void)
+{
+	int i = 0;
+	int ticks;
+	char* proc_name;
+
+    if(argint(0, &ticks) < 0)
+      return -1;
+    if(argptr(1, (char**)&proc_name, 1) < 0)
+      return -1;
+
+    myproc()->alarmticks = ticks;
+	for(; i<15;i++) myproc()->name[i] = proc_name[i];
+	//strcpy(myproc()->name, proc_name);
+	//myproc()->name = proc_name;
+    return 0;
+}

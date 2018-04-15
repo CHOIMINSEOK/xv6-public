@@ -23,6 +23,8 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int set_cpu_share(int);
+int alarm(int ticks, char *proc_name);
 
 // ulib.c
 int stat(char*, struct stat*);

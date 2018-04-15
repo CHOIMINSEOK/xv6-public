@@ -6,11 +6,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
-
-struct {
-  struct spinlock lock;
-  struct proc proc[NPROC];
-} ptable;
+#include "ptable.h"
 
 static struct proc *initproc;
 
@@ -111,6 +107,10 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
+
+  p->rticks = 0;
+  p->share = 10;
+  p->alarmticks = 10;
 
   return p;
 }
@@ -322,6 +322,8 @@ wait(void)
 void
 scheduler(void)
 {
+  //int boot_ticks = 100;
+  //int running_ticks = 0;
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
@@ -335,6 +337,21 @@ scheduler(void)
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
+
+	  // Compare share with running time
+	//  if(p->rticks < p->share) {
+	//  	p->rticks++;
+	//  } else continue;
+	
+	  // Boost
+	//  if(running_ticks == boot_ticks) {
+	//	running_ticks = 0;
+	//	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+	//		p->rticks = 0;
+	//	}
+	//	break;
+	//  } else running_ticks++;
+
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -532,3 +549,11 @@ procdump(void)
     cprintf("\n");
   }
 }
+
+int
+set_cpu_share(int share)
+{
+	 myproc()->share = share;
+	 return 0;
+}
+
