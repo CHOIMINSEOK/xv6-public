@@ -322,8 +322,6 @@ wait(void)
 void
 scheduler(void)
 {
-  //int boot_ticks = 100;
-  //int running_ticks = 0;
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
@@ -337,22 +335,11 @@ scheduler(void)
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
-
-	  // Compare share with running time
-	//  if(p->rticks < p->share) {
-	//  	p->rticks++;
-	//  } else continue;
 	
-	  // Boost
-	//  if(running_ticks == boot_ticks) {
-	//	running_ticks = 0;
-	//	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-	//		p->rticks = 0;
-	//	}
-	//	break;
-	//  } else running_ticks++;
-
-
+//	 cprintf("name: %s, rticks : %d, share : %d\n", p->name, p->rticks, p->share);
+	  // Compare share with running time
+	  if(p->rticks >= p->share) continue;
+	
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.

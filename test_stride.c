@@ -26,6 +26,7 @@ main(int argc, char *argv[])
   }
 
   cpu_share = atoi(argv[1]);
+  set_cpu_share(cpu_share);
   alarm(5, argv[2]);
 
   // Register this process to the Stride scheduler

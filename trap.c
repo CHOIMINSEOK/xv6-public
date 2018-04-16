@@ -55,6 +55,22 @@ trap(struct trapframe *tf)
       ticks++;
       wakeup(&ticks);
       release(&tickslock);
+
+	  if(ticks % 100 == 0) {
+	  	acquire(&ptable.lock);
+		struct proc* p;
+		cprintf("*********** BOOST TIME ***********\n");
+		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+			if(p->state == RUNNABLE || p->state == RUNNING ){	
+				cprintf("%s running tick : %d, share : %d\n", p->name, p->rticks, p->share);
+				p->rticks = 0;
+			}
+		}
+		cprintf("**********************************\n");
+
+		release(&ptable.lock);
+	  }
+
     }
     lapiceoi();
     break;
@@ -106,23 +122,27 @@ trap(struct trapframe *tf)
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
      tf->trapno == T_IRQ0+IRQ_TIMER) {
-	
-	  if(ticks % 10 == 0) {
-	  	acquire(&ptable.lock);
-		struct proc* p;
-		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-     		if(p->state == RUNNABLE || p->state == RUNNING ) 
-				cprintf("%s running tick : %d\n", p->name, p->rticks);
-		}
-		release(&ptable.lock);
-	  }
-    
-  	  //if(myproc() && (tf->cs&3) == DPL_USER ) {
+	  
 	  myproc()->rticks++;
-		  //cprintf("running tick : %d\n", myproc()->rticks);
-		  //myproc()->alarmhandler();
-	  //}
-	  yield();
+
+//	  if(ticks % 100 == 0) {
+//	  	acquire(&ptable.lock);
+//		struct proc* p;
+//		cprintf("*********** BOOST TIME ***********\n");
+//		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+//			if(p->state == RUNNABLE || p->state == RUNNING ){	
+//				cprintf("%s running tick : %d, share : %d\n", p->name, p->rticks, p->share);
+//				p->rticks = 0;
+//			}
+//		}
+//		cprintf("**********************************\n");
+
+//		release(&ptable.lock);
+//	  }
+
+	//` if(myproc()->rticks > myproc()->share)
+		 yield();
+   
   }
 
   // Check if the process has been killed since we yielded

@@ -30,6 +30,7 @@ main(int argc, char *argv[])
 
 	alarm(5, argv[2]);
     do_yield = atoi(argv[1]);
+	set_cpu_share(do_yield);
 
     i = 0;
     while (1) {
