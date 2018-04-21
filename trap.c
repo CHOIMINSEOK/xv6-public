@@ -56,10 +56,16 @@ trap(struct trapframe *tf)
       wakeup(&ticks);
       release(&tickslock);
 
-	  if(ticks % 200 == 0) {
+	  if(ticks % 100 == 0) {
 	  	acquire(&ptable.lock);
 		struct proc* p;
 		cprintf("*********** BOOST TIME ***********\n");
+		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+			if(p->state == RUNNABLE || p->state == RUNNING ){	
+				cprintf("%s running ticks in boost : %d, share : %d, lev : %d, index : %d, isSetCPU : %d, isInStride: %d\n", p->name, p->rticks_for_boost, p->share, p->q_lev, p->q_index, p->isSetCPU, p->isInStride);
+				p->rticks_for_boost = 0;
+			}
+		}
 		//cprintf("LEVEL 1 : ");
 
 		cprintf("*********** INIT MLFQ ***********\n");
@@ -67,24 +73,33 @@ trap(struct trapframe *tf)
 		for(int lev=1; lev < 3; lev++) {
 			for(int qhead=0; qhead < NPROC; qhead++) {
 				if(ptable.mlfq[lev][qhead] != 0) {
+					struct proc* p = ptable.mlfq[lev][qhead];
+					cprintf("In MLFQ Before: %s running ticks in boost : %d, share : %d, lev : %d, index : %d, isSetCPU : %d\n", p->name, p->rticks_for_boost, p->share, p->q_lev, p->q_index, p->isSetCPU);
+		
 					for(int i=0; i < NPROC; i++){
 						if(ptable.mlfq[0][i]==0){
-							ptable.mlfq[0][i] = ptable.mlfq[lev][qhead];
+							ptable.mlfq[0][i] = p;
+							p->q_lev = 0;
+							p->q_index = i;
+							p->time_allotment = 0;
 							ptable.mlfq[lev][qhead] = 0;
 							break;
 						}
 					}
-									
+					cprintf("In MLFQ After: %s running ticks in boost : %d, share : %d, lev : %d, index : %d, isSetCPU : %d\n", p->name, p->rticks_for_boost, p->share, p->q_lev, p->q_index, p->isSetCPU);
+							
 				}
 			}
 		}
-		cprintf("**********************************\n");
-		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-			if(p->state == RUNNABLE || p->state == RUNNING ){	
-				cprintf("%s running ticks in boost : %d, share : %d\n", p->name, p->rticks_for_boost, p->share);
-				p->rticks_for_boost = 0;
+		cprintf("*********** IN STRIDE ***************\n");	
+			for(int i = 0; i < NPROC; i++ ) {
+				p = ptable.stride[i];
+				if(p == 0) continue;
+				if(p->rticks_for_boost >= p->share) continue;
+				
+				cprintf("In Stride : %s running ticks in boost : %d, share : %d, lev : %d, index : %d, isSetCPU : %d\n", p->name, p->rticks_for_boost, p->share, p->q_lev, p->q_index, p->isSetCPU);
+	
 			}
-		}
 
 		release(&ptable.lock);
 	  }

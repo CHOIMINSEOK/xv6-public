@@ -114,6 +114,7 @@ found:
   p->time_allotment = 0;
   p->q_lev = 0;
   p->isSetCPU = 0;
+  p->isInStride = 0;
  	
   acquire(&ptable.lock);
   for(int i = 0; i < NPROC; i++){
@@ -331,6 +332,21 @@ wait(void)
 }
 
 void
+push_stride(struct proc* p) {
+//	acquire(&ptable.lock);
+	for(int i = 0; i < NPROC; i++){
+	  if(ptable.stride[i]==0){
+		cprintf("push_stride");
+		  ptable.stride[i] = p;
+		  p->q_index = i;
+		  p->isInStride  = 1;
+		  break;
+	  }
+  	}
+//	release(&ptable.lock);
+}
+
+void
 push_queue(struct proc* p, int lev) {
 	for(int i = 0; i < NPROC; i++){
 	  if(ptable.mlfq[lev][i]==0){
@@ -376,6 +392,11 @@ scheduler(void)
 newbie:
 	for(lev = 0; lev < 3; lev++) {
 		for(qhead = 0; qhead < NPROC; qhead++) {
+			p = ptable.mlfq[lev][qhead];
+			if(p!= 0 && p->isSetCPU == 1 && p->isInStride == 0) {
+				ptable.mlfq[lev][qhead]=0;
+				push_stride(p);
+			}
 
 			for(int i = 0; i < NPROC; i++ ) {
 				p = ptable.stride[i];
@@ -384,7 +405,8 @@ newbie:
 
 				goto doswitch;
 			}
-
+			
+			//cprintf("mlfq lev : %d, qhead : %d", lev, qhead);
 			p = ptable.mlfq[lev][qhead];
 			if(ptable.isNewbieComming != 0) {
 				ptable.isNewbieComming = 0;
@@ -607,25 +629,14 @@ procdump(void)
   }
 }
 
-void
-push_stride(struct proc* p) {
-	acquire(&ptable.lock);
-	for(int i = 0; i < NPROC; i++){
-	  if(ptable.stride[i]==0){
-		  ptable.stride[i] = p;
-		  p->q_index = i;
-		  p->isSetCPU = 1;
-		  break;
-	  }
-  	}
-	release(&ptable.lock);
-}
+
 
 int
 set_cpu_share(int share)
 {
-	pop_queue(myproc(), myproc()->q_lev, myproc()->q_index);
-	push_stride(myproc());
+	//pop_queue(myproc(), myproc()->q_lev, myproc()->q_index);
+	//push_stride(myproc());
+	myproc()->isSetCPU = 1;
 	myproc()->share = share;
 	return 0;
 }

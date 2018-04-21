@@ -45,6 +45,8 @@ main(int argc, char *argv[])
       continue;
     } else if (pid == 0) {
       // child
+	  
+	  printf(1, "exec %s\n", child_argv[i][2]);
       exec(child_argv[i][0], child_argv[i]);
       printf(1, "exec %s failed!!\n", child_argv[i][1]);
       exit();

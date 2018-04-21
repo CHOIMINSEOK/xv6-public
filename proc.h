@@ -56,6 +56,7 @@ struct proc {
   int q_lev;
   int q_index;
   int isSetCPU;
+  int isInStride;
 };
 
 // Process memory is laid out contiguously, low addresses first:
