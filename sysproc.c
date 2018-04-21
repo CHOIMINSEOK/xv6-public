@@ -103,6 +103,8 @@ sys_set_cpu_share(void)
 	int share;
 	if(argint(0, &share) < 0)
     	return -1;
+
+	myproc()->share = share;
 	return set_cpu_share(share);
 }
 
@@ -118,9 +120,6 @@ sys_alarm(void)
     if(argptr(1, (char**)&proc_name, 1) < 0)
       return -1;
 
-    myproc()->alarmticks = ticks;
 	for(; i<15;i++) myproc()->name[i] = proc_name[i];
-	//strcpy(myproc()->name, proc_name);
-	//myproc()->name = proc_name;
     return 0;
 }

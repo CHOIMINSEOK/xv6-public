@@ -49,10 +49,13 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  int rticks_for_boost;
   int rticks;                  // Process Running Time by ticks
-  int share;                   // Process Share Rate for CPU Resource
-  int alarmticks;
-  void (*alarmhandler)();      // Process Alarm for CPU Usage
+  int share;                   // Process Share Rate for CPU Resource in Stride/ Time Quantum in MLFQ
+  int time_allotment;          // time allotment in MLFQ
+  int q_lev;
+  int q_index;
+  int isSetCPU;
 };
 
 // Process memory is laid out contiguously, low addresses first:

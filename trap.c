@@ -56,17 +56,35 @@ trap(struct trapframe *tf)
       wakeup(&ticks);
       release(&tickslock);
 
-	  if(ticks % 100 == 0) {
+	  if(ticks % 200 == 0) {
 	  	acquire(&ptable.lock);
 		struct proc* p;
 		cprintf("*********** BOOST TIME ***********\n");
-		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-			if(p->state == RUNNABLE || p->state == RUNNING ){	
-				cprintf("%s running tick : %d, share : %d\n", p->name, p->rticks, p->share);
-				p->rticks = 0;
+		//cprintf("LEVEL 1 : ");
+
+		cprintf("*********** INIT MLFQ ***********\n");
+
+		for(int lev=1; lev < 3; lev++) {
+			for(int qhead=0; qhead < NPROC; qhead++) {
+				if(ptable.mlfq[lev][qhead] != 0) {
+					for(int i=0; i < NPROC; i++){
+						if(ptable.mlfq[0][i]==0){
+							ptable.mlfq[0][i] = ptable.mlfq[lev][qhead];
+							ptable.mlfq[lev][qhead] = 0;
+							break;
+						}
+					}
+									
+				}
 			}
 		}
 		cprintf("**********************************\n");
+		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+			if(p->state == RUNNABLE || p->state == RUNNING ){	
+				cprintf("%s running ticks in boost : %d, share : %d\n", p->name, p->rticks_for_boost, p->share);
+				p->rticks_for_boost = 0;
+			}
+		}
 
 		release(&ptable.lock);
 	  }
@@ -124,25 +142,13 @@ trap(struct trapframe *tf)
      tf->trapno == T_IRQ0+IRQ_TIMER) {
 	  
 	  myproc()->rticks++;
+	  myproc()->time_allotment++;
+	  myproc()->rticks_for_boost++;
 
-//	  if(ticks % 100 == 0) {
-//	  	acquire(&ptable.lock);
-//		struct proc* p;
-//		cprintf("*********** BOOST TIME ***********\n");
-//		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-//			if(p->state == RUNNABLE || p->state == RUNNING ){	
-//				cprintf("%s running tick : %d, share : %d\n", p->name, p->rticks, p->share);
-//				p->rticks = 0;
-//			}
-//		}
-//		cprintf("**********************************\n");
-
-//		release(&ptable.lock);
-//	  }
-
-	//` if(myproc()->rticks > myproc()->share)
-		 yield();
-   
+	  if(myproc()->rticks >= myproc()->share) {
+		  myproc()->rticks = 0;
+		  yield();
+	  }
   }
 
   // Check if the process has been killed since we yielded

@@ -109,8 +109,23 @@ found:
   p->context->eip = (uint)forkret;
 
   p->rticks = 0;
-  p->share = 10;
-  p->alarmticks = 10;
+  p->rticks_for_boost = 0;
+  p->share = 0;
+  p->time_allotment = 0;
+  p->q_lev = 0;
+  p->isSetCPU = 0;
+ 	
+  acquire(&ptable.lock);
+  for(int i = 0; i < NPROC; i++){
+	  if(ptable.mlfq[0][i]==0){
+		  ptable.mlfq[0][i] = p;
+		  p->q_index = i;
+		  break;
+	  }
+  }
+
+  ptable.isNewbieComming = 1;
+  release(&ptable.lock);
 
   return p;
 }
@@ -248,7 +263,10 @@ exit(void)
   curproc->cwd = 0;
 
   acquire(&ptable.lock);
-
+  if(curproc->isSetCPU == 0)
+  	ptable.mlfq[curproc->q_lev][curproc->q_index] = 0;
+  else 
+	ptable.stride[curproc->q_index] = 0;
   // Parent might be sleeping in wait().
   wakeup1(curproc->parent);
 
@@ -264,6 +282,7 @@ exit(void)
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
   sched();
+  
   panic("zombie exit");
 }
 
@@ -311,6 +330,23 @@ wait(void)
   }
 }
 
+void
+push_queue(struct proc* p, int lev) {
+	for(int i = 0; i < NPROC; i++){
+	  if(ptable.mlfq[lev][i]==0){
+		  ptable.mlfq[lev][i] = p;
+		  p->q_lev = lev;
+		  p->q_index = i;
+		  break;
+	  }
+  	}
+}
+
+void 
+pop_queue(struct proc* p, int lev, int index) {
+	ptable.mlfq[lev][index]=0;
+}
+	
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -325,6 +361,10 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
+  int lev = 0;
+  int qhead = 0;
+  int mlfq_time_allotment[3] = {5, 10, 100};
+  int mlfq_time_quantum[3] = {1, 2, 4};
   
   for(;;){
     // Enable interrupts on this processor.
@@ -332,31 +372,61 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
-	
-//	 cprintf("name: %s, rticks : %d, share : %d\n", p->name, p->rticks, p->share);
-	  // Compare share with running time
-	  if(p->rticks >= p->share) continue;
-	
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+newbie:
+	for(lev = 0; lev < 3; lev++) {
+		for(qhead = 0; qhead < NPROC; qhead++) {
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
-    }
+			for(int i = 0; i < NPROC; i++ ) {
+				p = ptable.stride[i];
+				if(p == 0) continue;
+				if(p->rticks_for_boost >= p->share) continue;
+
+				goto doswitch;
+			}
+
+			p = ptable.mlfq[lev][qhead];
+			if(ptable.isNewbieComming != 0) {
+				ptable.isNewbieComming = 0;
+				goto newbie;
+			}
+
+			if(p == 0) continue;
+
+			if(p->state != RUNNABLE) continue;
+
+			if(p->time_allotment >= mlfq_time_allotment[lev]) {
+				p->time_allotment = 0;
+				if(lev != 2) {
+					ptable.mlfq[lev][qhead] = 0;
+					push_queue(p, lev+1);
+				}
+				
+				continue;
+			}
+
+			p->share = mlfq_time_quantum[lev];
+	
+doswitch:
+       // Switch to chosen process.  It is the process's job
+   	    // to release ptable.lock and then reacquire it
+     	  // before jumping back to us.
+           c->proc = p;
+           switchuvm(p);
+           p->state = RUNNING;
+
+	       swtch(&(c->scheduler), p->context);	
+		   switchkvm();
+
+   		   // Process is done running for now.
+   		   // It should have changed its p->state before coming back.
+   		   c->proc = 0;
+    	}
+
+	}
     release(&ptable.lock);
-
-  }
+	
+	}
 }
 
 // Enter scheduler.  Must hold only ptable.lock
@@ -537,10 +607,26 @@ procdump(void)
   }
 }
 
+void
+push_stride(struct proc* p) {
+	acquire(&ptable.lock);
+	for(int i = 0; i < NPROC; i++){
+	  if(ptable.stride[i]==0){
+		  ptable.stride[i] = p;
+		  p->q_index = i;
+		  p->isSetCPU = 1;
+		  break;
+	  }
+  	}
+	release(&ptable.lock);
+}
+
 int
 set_cpu_share(int share)
 {
-	 myproc()->share = share;
-	 return 0;
+	pop_queue(myproc(), myproc()->q_lev, myproc()->q_index);
+	push_stride(myproc());
+	myproc()->share = share;
+	return 0;
 }
 

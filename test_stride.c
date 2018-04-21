@@ -54,7 +54,7 @@ main(int argc, char *argv[])
       if (curr_tick - start_tick > LIFETIME) {
         // Terminate process
         printf(1, "STRIDE(%d%%), cnt: %d\n", cpu_share, cnt);
-        break;
+       // break;
       }
       i = 0;
     }
